@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSB Growth Dashboard — Meta Ads</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#14181e; --bg-elevated:#1c222b; --bg-card:#1f2630;
+    --border:rgba(255,255,255,0.07); --border-strong:rgba(255,255,255,0.14);
+    --teal:#0097b2; --green:#7ed957;
+    --gradient:linear-gradient(135deg,#0097b2 0%,#7ed957 100%);
+    --amber:#ffc860; --amber-dim:rgba(255,200,96,0.12); --amber-border:rgba(255,200,96,0.28);
+    --text:#eef2f4; --text-dim:#8f9aa8; --text-faint:#5f6b78;
+    --danger:#ff6b6b; --warning:#ffc860; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1160px; margin:0 auto; padding:32px 24px 80px;}
+
+  .header{margin-bottom:22px;}
+  .eyebrow{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); font-weight:600; margin:0 0 6px;}
+  h1{font-size:26px; margin:0 0 6px; font-weight:700; letter-spacing:-0.01em;}
+  .sub{color:var(--text-dim); font-size:14px; margin:0; max-width:640px; line-height:1.5;}
+
+  .tabs{display:flex; gap:6px; margin-bottom:22px; border-bottom:1px solid var(--border); flex-wrap:wrap;}
+  .tab{background:none; border:none; color:var(--text-dim); font-family:inherit; font-size:14px; font-weight:600; padding:11px 16px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:.15s;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--text); border-bottom-color:var(--green);}
+
+  .panel{display:none;} .panel.active{display:block; animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+  .card{background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:22px; margin-bottom:18px;}
+  .card h2{font-size:16px; margin:0 0 4px; font-weight:700;}
+  .card .card-sub{color:var(--text-dim); font-size:13px; margin:0 0 16px;}
+  .card-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:4px;}
+
+  .pill{font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:3px 9px; border-radius:99px;}
+  .pill-b{color:var(--amber); background:var(--amber-dim);}
+
+  /* scorecards */
+  .score-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:18px;}
+  .score{background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:18px;}
+  .score .s-label{font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin-bottom:8px;}
+  .score .s-value{font-size:28px; font-weight:700; line-height:1;}
+  .score .s-delta{font-size:12.5px; font-weight:600; margin-top:8px; display:inline-flex; align-items:center; gap:4px;}
+  .s-delta.up{color:var(--green);} .s-delta.down{color:var(--danger);} .s-delta.flat{color:var(--text-faint);}
+
+  /* best week highlight */
+  .best-week{
+    background:linear-gradient(135deg, rgba(0,151,178,0.14), rgba(126,217,87,0.10));
+    border:1px solid rgba(126,217,87,0.28); border-radius:var(--radius); padding:20px 22px; margin-bottom:18px;
+    display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;
+  }
+  .best-week .bw-left{display:flex; align-items:center; gap:14px;}
+  .best-week .bw-star{font-size:26px; line-height:1;}
+  .best-week .bw-title{font-size:13px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; font-weight:700; margin-bottom:3px;}
+  .best-week .bw-date{font-size:19px; font-weight:700;}
+  .best-week .bw-stats{display:flex; gap:26px; flex-wrap:wrap;}
+  .best-week .bw-stat{text-align:right;}
+  .best-week .bw-stat .bw-num{font-size:20px; font-weight:700; color:var(--green);}
+  .best-week .bw-stat .bw-lbl{font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
+
+  /* health strip */
+  .health-strip{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px;}
+  .health-pill{background:var(--bg-elevated); border:1px solid var(--border); border-radius:10px; padding:12px 14px;}
+  .health-pill .hp-name{font-size:11.5px; color:var(--text-dim); margin-bottom:5px;}
+  .health-pill .hp-val{font-size:19px; font-weight:700;}
+  .health-pill .hp-status{font-size:10.5px; font-weight:700; margin-top:6px; text-transform:uppercase; letter-spacing:.04em;}
+  .st-good{color:var(--green);} .st-warn{color:var(--warning);} .st-bad{color:var(--danger);} .st-empty{color:var(--text-faint);}
+
+  .chart-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  @media(max-width:820px){ .chart-grid{grid-template-columns:1fr;} }
+  .chart-box{position:relative; height:280px;}
+  .chart-box.short{height:200px;}
+
+  /* weekly log */
+  .form-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; align-items:end;}
+  .field label{display:block; font-size:12px; color:var(--text-dim); margin-bottom:5px;}
+  .field input{width:100%; background:var(--bg); border:1px solid var(--border-strong); border-radius:8px; color:var(--text); padding:9px 11px; font-size:14px; font-family:inherit;}
+  .field input:focus{outline:none; border-color:var(--teal);}
+  .btn{background:var(--gradient); border:none; color:#0e1116; font-weight:700; font-size:14px; padding:10px 18px; border-radius:8px; cursor:pointer; font-family:inherit;}
+  .btn:hover{opacity:.92;}
+  .btn-ghost{background:none; border:1px solid var(--border-strong); color:var(--text-dim); font-weight:600; font-size:12.5px; padding:8px 14px; border-radius:8px; cursor:pointer; font-family:inherit;}
+  .btn-ghost:hover{border-color:var(--danger); color:var(--danger);}
+  .funnelb-block{margin-top:18px; padding-top:16px; border-top:1px solid var(--border);}
+
+  table{width:100%; border-collapse:collapse; font-size:13px; margin-top:8px;}
+  th{text-align:right; padding:9px 10px; color:var(--text-dim); font-weight:600; border-bottom:1px solid var(--border-strong); font-size:11.5px; text-transform:uppercase; letter-spacing:.04em;}
+  th:first-child{text-align:left;}
+  td{text-align:right; padding:10px; border-bottom:1px solid var(--border);}
+  td:first-child{text-align:left; font-weight:600;}
+  tr:hover td{background:rgba(255,255,255,0.02);}
+  .del-x{background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:15px; padding:0 4px;}
+  .del-x:hover{color:var(--danger);}
+
+  /* roadmap + setup */
+  .progress-track{height:8px; background:rgba(255,255,255,0.06); border-radius:99px; overflow:hidden; margin-top:10px;}
+  .progress-fill{height:100%; background:var(--gradient); border-radius:99px; transition:width .3s ease;}
+  .progress-row{display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-dim); margin-top:6px;}
+  .check-item{display:flex; align-items:flex-start; gap:12px; padding:10px 4px; border-bottom:1px solid var(--border);}
+  .check-item:last-child{border-bottom:none;}
+  .check-item input[type=checkbox]{appearance:none; width:19px; height:19px; min-width:19px; margin-top:2px; border-radius:5px; border:1.5px solid var(--border-strong); background:transparent; cursor:pointer; position:relative; transition:.15s;}
+  .check-item input[type=checkbox]:checked{background:var(--gradient); border-color:transparent;}
+  .check-item input[type=checkbox]:checked::after{content:''; position:absolute; left:6px; top:2px; width:5px; height:9px; border:solid #0e1116; border-width:0 2px 2px 0; transform:rotate(45deg);}
+  .check-item label{font-size:14px; line-height:1.5; cursor:pointer;}
+  .check-item.done label{color:var(--text-faint); text-decoration:line-through;}
+  .phase-header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:2px;}
+  .phase-tag{font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--teal); background:rgba(0,151,178,0.12); padding:3px 9px; border-radius:99px;}
+  .notes-area{width:100%; min-height:70px; background:var(--bg-elevated); border:1px solid var(--border-strong); border-radius:8px; color:var(--text); padding:10px 12px; font-size:13.5px; font-family:inherit; resize:vertical;}
+  .notes-area:focus{outline:none; border-color:var(--teal);}
+
+  .banner{background:rgba(255,200,96,0.09); border:1px solid rgba(255,200,96,0.28); border-radius:10px; padding:11px 14px; font-size:13px; color:var(--warning); margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;}
+  .empty-note{color:var(--text-faint); font-size:13.5px; text-align:center; padding:40px 10px;}
+  .save-note{font-size:11.5px; color:var(--text-faint); text-align:right; margin-top:10px; height:14px;}
+  .footer-note{font-size:12px; color:var(--text-faint); text-align:center; margin-top:30px; line-height:1.6;}
+  .alloc-inputs{display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .alloc-inputs .field{flex:1; min-width:110px;}
+
+  @media print{
+    .tabs, .no-print, .banner{display:none !important;}
+    .panel{display:none !important;}
+    #panel-dashboard{display:block !important;}
+    body{background:#fff; color:#111;}
+    .card,.score,.health-pill,.best-week{border-color:#ddd; background:#fff;}
+    .s-value,.hp-val,h1,.bw-date{color:#111;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <p class="eyebrow">MyStrengthBook · Paid Growth</p>
+    <h1>Meta Ads Growth Dashboard</h1>
+    <p class="sub">Weekly performance across both funnels: self-serve trial signups (Funnel A) and PUSH/HYBRID sales calls (Funnel B) — tracked separately, since they're different products.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="log">Weekly Log</button>
+    <button class="tab" data-tab="roadmap">Roadmap</button>
+    <button class="tab" data-tab="setup">Setup</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="panel active" id="panel-dashboard">
+    <div class="banner no-print" id="sample-banner" style="display:none;">
+      <span>Showing example data so you can see the layout. Clear it once you log your real first week.</span>
+      <button class="btn-ghost" id="clear-sample">Clear example data</button>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+      <div style="font-size:13px; color:var(--text-dim);" id="dash-week-label">—</div>
+      <button class="btn-ghost no-print" id="print-btn">Print / Save as PDF</button>
+    </div>
+
+    <div id="dash-content">
+      <!-- Top glance: scorecards -->
+      <div class="score-row" id="score-row"></div>
+
+      <!-- Best week highlight -->
+      <div class="best-week" id="best-week"></div>
+
+      <!-- Health strip -->
+      <div class="card">
+        <h2>Health check vs. benchmarks</h2>
+        <p class="card-sub">Latest week's Funnel A metrics against the target ranges from the audit.</p>
+        <div class="health-strip" id="health-strip"></div>
+      </div>
+
+      <!-- Priority charts: trials/cost + spend -->
+      <div class="chart-grid">
+        <div class="card">
+          <h2>Trials &amp; cost per trial</h2>
+          <p class="card-sub">The scaling story: volume up, cost down.</p>
+          <div class="chart-box"><canvas id="chart-trials"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Weekly spend vs. pace</h2>
+          <p class="card-sub">Dashed line = $160/day pace ($5K/mo).</p>
+          <div class="chart-box"><canvas id="chart-spend"></canvas></div>
+        </div>
+      </div>
+
+      <!-- FUNNEL B -->
+      <div class="card" style="border-color:var(--amber-border);">
+        <div class="card-head">
+          <h2 style="margin:0;">Funnel B — Push / Hybrid Calls</h2>
+          <span class="pill pill-b">Typeform · Meta-sourced</span>
+        </div>
+        <p class="card-sub">Sales calls booked via the PUSH/HYBRID Typeform, tagged <code>utm_source=meta</code>. A separate product and funnel from trial signups — never blended with Funnel A above.</p>
+        <div class="score-row" id="fb-score-row" style="margin-bottom:14px;"></div>
+        <div class="chart-box short"><canvas id="chart-fb"></canvas></div>
+      </div>
+
+      <!-- Secondary charts: allocation + funnel -->
+      <div class="chart-grid">
+        <div class="card">
+          <h2>Budget allocation</h2>
+          <p class="card-sub">Your split vs. the recommended 70 / 20 / 10.</p>
+          <div class="alloc-inputs no-print">
+            <div class="field"><label>Prospecting $/day</label><input type="number" id="alloc-p" placeholder="70"></div>
+            <div class="field"><label>Retargeting $/day</label><input type="number" id="alloc-r" placeholder="20"></div>
+            <div class="field"><label>Testing $/day</label><input type="number" id="alloc-t" placeholder="10"></div>
+          </div>
+          <div class="chart-box short"><canvas id="chart-alloc"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Conversion funnel (Funnel A)</h2>
+          <p class="card-sub">Totals to date — where prospects drop off.</p>
+          <div class="chart-box short"><canvas id="chart-funnel"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="empty-note" id="dash-empty" style="display:none;">
+      No data yet. Head to <b>Weekly Log</b> and add your first week — the charts fill in automatically.
+    </div>
+  </div>
+
+  <!-- WEEKLY LOG -->
+  <div class="panel" id="panel-log">
+    <div class="card">
+      <h2>Log a week</h2>
+      <p class="card-sub">Copy these 5 numbers from Ads Manager and Stripe. Everything else (CTR, CPC, cost/trial, conversion rates) is calculated for you. Re-entering an existing week updates it.</p>
+      <div class="form-grid">
+        <div class="field"><label>Week ending</label><input type="date" id="f-week"></div>
+        <div class="field"><label>Spend ($)</label><input type="number" id="f-spend" placeholder="350"></div>
+        <div class="field"><label>Impressions</label><input type="number" id="f-impr" placeholder="42000"></div>
+        <div class="field"><label>Link clicks</label><input type="number" id="f-clicks" placeholder="520"></div>
+        <div class="field"><label>Trials</label><input type="number" id="f-trials" placeholder="6"></div>
+        <div class="field"><label>Paid conversions</label><input type="number" id="f-paid" placeholder="1"></div>
+      </div>
+
+      <div class="funnelb-block">
+        <div class="card-head" style="margin-bottom:12px;">
+          <span class="pill pill-b">Funnel B</span>
+          <span style="font-size:13px; color:var(--text-dim);">Push / Hybrid — sales calls booked via Typeform (optional, same week)</span>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label>Calls booked (Meta-sourced)</label><input type="number" id="f-calls" placeholder="2"></div>
+          <div class="field"><button class="btn" id="add-week">Save week</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+        <div>
+          <h2>History</h2>
+          <p class="card-sub">CTR, CPC, cost/trial and conversion rates are derived from your inputs. "Calls (B)" is Funnel B.</p>
+        </div>
+        <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn-ghost" id="export-csv" style="border-color:var(--border-strong); color:var(--text-dim);">↓ Export CSV</button>
+          <button class="btn-ghost" id="import-csv-btn" style="border-color:var(--border-strong); color:var(--text-dim);">↑ Import CSV</button>
+          <input type="file" id="import-csv-file" accept=".csv" style="display:none;">
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="log-table">
+          <thead><tr>
+            <th>Week</th><th>Spend</th><th>Trials</th><th>Cost/Trial</th><th>CTR</th><th>CPC</th><th>LP Conv</th><th>Paid</th><th>Calls (B)</th><th></th>
+          </tr></thead>
+          <tbody id="log-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-note" id="log-empty">No weeks logged yet.</div>
+      <p class="card-sub" style="margin:12px 0 0; font-size:12px;">Export keeps a backup of your history. Import restores it on a new machine or after clearing your browser — it replaces the current data.</p>
+    </div>
+  </div>
+
+  <!-- ROADMAP -->
+  <div class="panel" id="panel-roadmap">
+    <div class="card">
+      <h2>Overall progress</h2>
+      <p class="card-sub">Across all three phases</p>
+      <div class="progress-track"><div class="progress-fill" id="overall-fill" style="width:0%"></div></div>
+      <div class="progress-row"><span id="overall-count">0 / 0 complete</span><span id="overall-pct">0%</span></div>
+    </div>
+    <div id="roadmap-phases"></div>
+  </div>
+
+  <!-- SETUP -->
+  <div class="panel" id="panel-setup">
+    <div class="card">
+      <h2>Pixel, CAPI &amp; GHL Sync Setup</h2>
+      <p class="card-sub">The dev needs three things from you before they can build anything. Get those out first, then track their build below.</p>
+      <div class="progress-track"><div class="progress-fill" id="setup-fill" style="width:0%"></div></div>
+      <div class="progress-row"><span id="setup-count">0 / 0 complete</span><span id="setup-pct">0%</span></div>
+      <div id="setup-checklist" style="margin-top:14px;"></div>
+    </div>
+    <div class="card">
+      <h2>Setup notes</h2>
+      <p class="card-sub">Dataset ID, event names, reference info. Don't paste access tokens here.</p>
+      <textarea class="notes-area" id="setup-notes" placeholder="e.g. Dataset ID: 123456789 — mapped to CompleteRegistration — verified in Test Events 7/6"></textarea>
+    </div>
+  </div>
+
+  <div class="save-note no-print" id="save-note"></div>
+  <p class="footer-note no-print">Everything saves automatically.<br>Built for MyStrengthBook — GoHighLevel + Meta Ads.</p>
+</div>
+
+<script>
+(function(){
+  const hasClaudeStorage = typeof window.storage !== 'undefined';
+  const KEY = 'msb-growth-dashboard-v3';
+
+  async function loadState(){
+    try{
+      if(hasClaudeStorage){ const r = await window.storage.get(KEY,false); return r?JSON.parse(r.value):null; }
+      const v = localStorage.getItem(KEY); return v?JSON.parse(v):null;
+    }catch(e){ return null; }
+  }
+  async function saveState(s){
+    try{
+      if(hasClaudeStorage){ await window.storage.set(KEY, JSON.stringify(s), false); }
+      else{ localStorage.setItem(KEY, JSON.stringify(s)); }
+      flashSaved();
+    }catch(e){ console.error(e); }
+  }
+  function flashSaved(){
+    const el=document.getElementById('save-note');
+    el.textContent='Saved '+new Date().toLocaleTimeString();
+    clearTimeout(flashSaved._t); flashSaved._t=setTimeout(()=>el.textContent='',2500);
+  }
+
+  const sampleWeeks = [
+    {week:'2026-06-15', spend:350, impr:38000, clicks:410, trials:4, paid:0, calls:1, sample:true},
+    {week:'2026-06-22', spend:455, impr:52000, clicks:600, trials:6, paid:1, calls:2, sample:true},
+    {week:'2026-06-29', spend:560, impr:61000, clicks:770, trials:9, paid:2, calls:3, sample:true},
+  ];
+
+  const defaultState = {
+    weeks: JSON.parse(JSON.stringify(sampleWeeks)),
+    sampleActive: true,
+    alloc: {p:'', r:'', t:''},
+    roadmap: {
+      phase1:{title:"Phase 1 — Foundation", weeks:"Weeks 1–2", items:[
+        {id:'p1-1',label:'Create Dataset (Pixel) in Meta Events Manager',done:false},
+        {id:'p1-2',label:'Install base Pixel code in GHL funnel head tracking',done:false},
+        {id:'p1-3',label:'Build GHL workflow: Form Submitted → Facebook Conversion API action',done:false},
+        {id:'p1-4',label:'Map trial signup to CompleteRegistration / Subscribe event',done:false},
+        {id:'p1-5',label:'Add pricing mention to landing page (from $3.99/active athlete)',done:false},
+        {id:'p1-6',label:'Pause the "Lead ad Nov 2025" DM campaign',done:false},
+        {id:'p1-7',label:'Launch new Sales/Conversions campaign at $50/day',done:false},
+      ]},
+      phase2:{title:"Phase 2 — Validation", weeks:"Weeks 3–4", items:[
+        {id:'p2-1',label:'Monitor cost per trial daily against $60–90 target',done:false},
+        {id:'p2-2',label:'Launch Retargeting campaign at $15/day',done:false},
+        {id:'p2-3',label:'Build custom audiences: 30-day visitors, 90-day engagers, video viewers',done:false},
+        {id:'p2-4',label:'Test 3–5 creative variations across the core angles',done:false},
+        {id:'p2-5',label:'Verify Event Match Quality score in Events Manager',done:false},
+      ]},
+      phase3:{title:"Phase 3 — Vertical Scaling", weeks:"Weeks 5–8", items:[
+        {id:'p3-1',label:'Identify winning creatives and audiences from testing',done:false},
+        {id:'p3-2',label:'Increase Prospecting budget 15–20% every 3–4 days (only if CPA in range)',done:false},
+        {id:'p3-3',label:'Launch isolated Creative Testing campaign (10% of budget)',done:false},
+        {id:'p3-4',label:'Build 1–3% lookalike from PULL/PUSH subscriber CSV',done:false},
+        {id:'p3-5',label:'Reach $160/day ($5,000/mo) sustained spend',done:false},
+      ]}
+    },
+    setup:{ items:[
+      {id:'s-1',label:'Meta Dataset (Pixel) ID + Access Token generated in Events Manager',done:false},
+      {id:'s-2',label:'GHL inbound webhook URL created (Automation → workflow with Webhook trigger)',done:false},
+      {id:'s-3',label:'Signup URL confirmed with dev (the exact MSB URL that receives ?fbclid & UTMs)',done:false},
+      {id:'s-4',label:'All 3 items above sent to developer',done:false},
+      {id:'s-5',label:'GHL landing page: query-string pass-through snippet added to "Start Free Trial" button',done:false},
+      {id:'s-6',label:'Dev confirms: CompleteRegistration test event visible in Meta Test Events',done:false},
+      {id:'s-7',label:'Dev confirms: test signup appears as a new contact in GHL with source = meta',done:false},
+      {id:'s-8',label:'GHL: workflow built to tag/pipeline-stage/enroll contacts arriving via the webhook',done:false},
+      {id:'s-9',label:'Event Match Quality checked in Meta (target 6+/10)',done:false},
+    ], notes:''}
+  };
+
+  const bench = {
+    ctr:   {name:'CTR', unit:'%', good:v=>v>1.2, warn:v=>v>=0.8, fmt:v=>v.toFixed(2)+'%'},
+    cpc:   {name:'CPC', unit:'$', good:v=>v<3, warn:v=>v<=4, fmt:v=>'$'+v.toFixed(2)},
+    lpcvr: {name:'LP Conv', unit:'%', good:v=>v>=10&&v<=15, warn:v=>v>=8.9, fmt:v=>v.toFixed(1)+'%'},
+    cpa:   {name:'Cost/Trial', unit:'$', good:v=>v>=60&&v<=90, warn:v=>v<=150, fmt:v=>'$'+v.toFixed(0)},
+    t2p:   {name:'Trial→Paid', unit:'%', good:v=>v>20, warn:v=>v>=15, fmt:v=>v.toFixed(0)+'%'},
+  };
+
+  let state=null, charts={};
+
+  function mergeDone(def, saved){
+    if(!saved) return def; const m={}; saved.forEach(i=>m[i.id]=i.done);
+    return def.map(i=>({...i, done:m[i.id]!==undefined?m[i.id]:i.done}));
+  }
+
+  async function init(){
+    const saved = await loadState();
+    state = JSON.parse(JSON.stringify(defaultState));
+    if(saved){
+      if(saved.weeks) state.weeks = saved.weeks.map(w=>({calls:0, ...w}));
+      if('sampleActive' in saved) state.sampleActive = saved.sampleActive;
+      if(saved.alloc) state.alloc = {...state.alloc, ...saved.alloc};
+      if(saved.roadmap){ ['phase1','phase2','phase3'].forEach(p=>{ if(saved.roadmap[p]) state.roadmap[p].items = mergeDone(state.roadmap[p].items, saved.roadmap[p].items); }); }
+      if(saved.setup){ state.setup.items = mergeDone(state.setup.items, saved.setup.items); state.setup.notes = saved.setup.notes||''; }
+    }
+    setupTabs(); setupAllocInputs(); renderAll();
+  }
+  function persist(){ saveState(state); }
+
+  function derive(w){
+    const ctr = w.impr>0 ? (w.clicks/w.impr*100) : 0;
+    const cpc = w.clicks>0 ? (w.spend/w.clicks) : 0;
+    const cpa = w.trials>0 ? (w.spend/w.trials) : 0;
+    const lpcvr = w.clicks>0 ? (w.trials/w.clicks*100) : 0;
+    const t2p = w.trials>0 ? (w.paid/w.trials*100) : 0;
+    return {ctr,cpc,cpa,lpcvr,t2p};
+  }
+
+  function getBestWeek(weeks){
+    const withTrials = weeks.filter(w=>w.trials>0);
+    if(!withTrials.length) return null;
+    let best = withTrials[0], bestCpa = derive(best).cpa;
+    withTrials.forEach(w=>{
+      const cpa = derive(w).cpa;
+      if(cpa < bestCpa){ bestCpa = cpa; best = w; }
+    });
+    return best;
+  }
+
+  function renderAll(){ renderDashboard(); renderLog(); renderRoadmap(); renderSetup(); }
+
+  // ---------- DASHBOARD ----------
+  function renderDashboard(){
+    const banner=document.getElementById('sample-banner');
+    banner.style.display = state.sampleActive && state.weeks.length ? 'flex':'none';
+
+    const weeks=[...state.weeks].sort((a,b)=>a.week.localeCompare(b.week));
+    const content=document.getElementById('dash-content');
+    const empty=document.getElementById('dash-empty');
+    if(!weeks.length){ content.style.display='none'; empty.style.display='block'; document.getElementById('dash-week-label').textContent='—'; return; }
+    content.style.display='block'; empty.style.display='none';
+
+    const latest=weeks[weeks.length-1], prev=weeks.length>1?weeks[weeks.length-2]:null;
+    document.getElementById('dash-week-label').textContent='Latest week: '+fmtDate(latest.week);
+
+    // scorecards
+    const dL=derive(latest), dP=prev?derive(prev):null;
+    const cards=[
+      {label:'Weekly Spend', val:'$'+num(latest.spend), cur:latest.spend, prev:prev?prev.spend:null, higherGood:null},
+      {label:'Trials', val:num(latest.trials), cur:latest.trials, prev:prev?prev.trials:null, higherGood:true},
+      {label:'Cost / Trial', val:latest.trials>0?'$'+dL.cpa.toFixed(0):'—', cur:dL.cpa, prev:dP?dP.cpa:null, higherGood:false},
+      {label:'Trial → Paid', val:latest.trials>0?dL.t2p.toFixed(0)+'%':'—', cur:dL.t2p, prev:dP?dP.t2p:null, higherGood:true},
+    ];
+    document.getElementById('score-row').innerHTML = cards.map(c=>{
+      let delta='';
+      if(c.prev!==null && c.prev!==0 && !isNaN(c.cur)){
+        const diff=c.cur-c.prev, pct=Math.round(diff/Math.abs(c.prev)*100);
+        let cls='flat', arrow='→';
+        if(diff>0){ arrow='↑'; cls=c.higherGood===null?'flat':(c.higherGood?'up':'down'); }
+        else if(diff<0){ arrow='↓'; cls=c.higherGood===null?'flat':(c.higherGood?'down':'up'); }
+        delta=`<div class="s-delta ${cls}">${arrow} ${Math.abs(pct)}% vs last week</div>`;
+      }
+      return `<div class="score"><div class="s-label">${c.label}</div><div class="s-value">${c.val}</div>${delta}</div>`;
+    }).join('');
+
+    // best week highlight
+    const bw = getBestWeek(weeks);
+    const bwEl = document.getElementById('best-week');
+    if(bw){
+      const d = derive(bw);
+      bwEl.innerHTML = `
+        <div class="bw-left">
+          <div class="bw-star">🏆</div>
+          <div>
+            <div class="bw-title">Best week so far (lowest cost per trial)</div>
+            <div class="bw-date">${fmtDate(bw.week)}</div>
+          </div>
+        </div>
+        <div class="bw-stats">
+          <div class="bw-stat"><div class="bw-num">${num(bw.trials)}</div><div class="bw-lbl">Trials</div></div>
+          <div class="bw-stat"><div class="bw-num">$${d.cpa.toFixed(0)}</div><div class="bw-lbl">Cost/Trial</div></div>
+          <div class="bw-stat"><div class="bw-num">${d.ctr.toFixed(2)}%</div><div class="bw-lbl">CTR</div></div>
+        </div>`;
+      bwEl.style.display='flex';
+    } else {
+      bwEl.innerHTML = `<div class="bw-left"><div class="bw-star">🏆</div><div><div class="bw-title">Best week so far</div><div class="bw-date" style="color:var(--text-faint); font-size:15px;">No week with trials logged yet</div></div></div>`;
+      bwEl.style.display='flex';
+    }
+
+    // health strip (latest week)
+    const hs=[
+      {k:'ctr', v:dL.ctr}, {k:'cpc', v:dL.cpc}, {k:'lpcvr', v:dL.lpcvr}, {k:'cpa', v:dL.cpa}, {k:'t2p', v:dL.t2p}
+    ];
+    document.getElementById('health-strip').innerHTML = hs.map(h=>{
+      const b=bench[h.k]; let status='<span class="st-empty">No data</span>', valTxt='—';
+      const hasData = (h.k==='cpa'||h.k==='t2p') ? latest.trials>0 : (h.k==='ctr'?latest.impr>0:latest.clicks>0);
+      if(hasData && !isNaN(h.v)){
+        valTxt=b.fmt(h.v);
+        if(b.good(h.v)) status='<span class="st-good">On target</span>';
+        else if(b.warn(h.v)) status='<span class="st-warn">Off target</span>';
+        else status='<span class="st-bad">Below bench</span>';
+      }
+      return `<div class="health-pill"><div class="hp-name">${b.name}</div><div class="hp-val">${valTxt}</div><div class="hp-status">${status}</div></div>`;
+    }).join('');
+
+    // Funnel B scorecards
+    const fbLatestCalls = +latest.calls||0, fbPrevCalls = prev?(+prev.calls||0):null;
+    const fbTotal = weeks.reduce((a,w)=>a+(+w.calls||0),0);
+    let fbDelta='';
+    if(fbPrevCalls!==null && fbPrevCalls!==0){
+      const diff=fbLatestCalls-fbPrevCalls, pct=Math.round(diff/Math.abs(fbPrevCalls)*100);
+      let cls='flat', arrow='→';
+      if(diff>0){arrow='↑'; cls='up';} else if(diff<0){arrow='↓'; cls='down';}
+      fbDelta=`<div class="s-delta ${cls}">${arrow} ${Math.abs(pct)}% vs last week</div>`;
+    }
+    document.getElementById('fb-score-row').innerHTML = `
+      <div class="score"><div class="s-label">Calls this week</div><div class="s-value">${num(fbLatestCalls)}</div>${fbDelta}</div>
+      <div class="score"><div class="s-label">Total to date</div><div class="s-value">${num(fbTotal)}</div></div>
+    `;
+
+    drawTrialsChart(weeks);
+    drawSpendChart(weeks);
+    drawFunnelBChart(weeks);
+    drawFunnelChart(weeks);
+    drawAllocChart();
+  }
+
+  const chartFont = {family:"'Inter',sans-serif"};
+  const gridColor='rgba(255,255,255,0.06)', tickColor='#8f9aa8';
+
+  function baseOpts(extra){
+    return Object.assign({
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#eef2f4', font:chartFont, boxWidth:12}} },
+    }, extra||{});
+  }
+
+  function drawTrialsChart(weeks){
+    const labels=weeks.map(w=>fmtDate(w.week,true));
+    const trials=weeks.map(w=>w.trials);
+    const cpa=weeks.map(w=>w.trials>0?+(w.spend/w.trials).toFixed(2):null);
+    if(charts.trials) charts.trials.destroy();
+    charts.trials=new Chart(document.getElementById('chart-trials'),{
+      data:{labels, datasets:[
+        {type:'bar', label:'Trials', data:trials, backgroundColor:'rgba(126,217,87,0.75)', borderRadius:6, yAxisID:'y'},
+        {type:'line', label:'Cost / Trial ($)', data:cpa, borderColor:'#0097b2', backgroundColor:'#0097b2', tension:.3, pointRadius:4, yAxisID:'y1'},
+      ]},
+      options:baseOpts({
+        scales:{
+          y:{position:'left', beginAtZero:true, grid:{color:gridColor}, ticks:{color:tickColor, font:chartFont}, title:{display:true,text:'Trials',color:tickColor}},
+          y1:{position:'right', beginAtZero:true, grid:{drawOnChartArea:false}, ticks:{color:tickColor, font:chartFont, callback:v=>'$'+v}, title:{display:true,text:'Cost/Trial',color:tickColor}},
+          x:{grid:{color:gridColor}, ticks:{color:tickColor, font:chartFont}}
+        }
+      })
+    });
+  }
+
+  function drawSpendChart(weeks){
+    const labels=weeks.map(w=>fmtDate(w.week,true));
+    const spend=weeks.map(w=>w.spend);
+    const goal=weeks.map(()=>1120);
+    if(charts.spend) charts.spend.destroy();
+    charts.spend=new Chart(document.getElementById('chart-spend'),{
+      data:{labels, datasets:[
+        {type:'bar', label:'Weekly spend', data:spend, backgroundColor:'rgba(0,151,178,0.75)', borderRadius:6},
+        {type:'line', label:'$5K/mo pace', data:goal, borderColor:'#ffc860', borderDash:[6,4], pointRadius:0, borderWidth:2},
+      ]},
+      options:baseOpts({
+        scales:{
+          y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:tickColor, font:chartFont, callback:v=>'$'+v}},
+          x:{grid:{color:gridColor}, ticks:{color:tickColor, font:chartFont}}
+        }
+      })
+    });
+  }
+
+  function drawFunnelBChart(weeks){
+    const labels=weeks.map(w=>fmtDate(w.week,true));
+    const calls=weeks.map(w=>+w.calls||0);
+    if(charts.fb) charts.fb.destroy();
+    charts.fb=new Chart(document.getElementById('chart-fb'),{
+      type:'bar',
+      data:{labels, datasets:[
+        {label:'Calls booked (Meta)', data:calls, backgroundColor:'rgba(255,200,96,0.8)', borderRadius:6}
+      ]},
+      options:baseOpts({
+        plugins:{legend:{display:false}},
+        scales:{
+          y:{beginAtZero:true, ticks:{stepSize:1, color:tickColor, font:chartFont}, grid:{color:gridColor}},
+          x:{grid:{color:gridColor}, ticks:{color:tickColor, font:chartFont}}
+        }
+      })
+    });
+  }
+
+  function drawFunnelChart(weeks){
+    const tot=weeks.reduce((a,w)=>({impr:a.impr+ +w.impr, clicks:a.clicks+ +w.clicks, trials:a.trials+ +w.trials, paid:a.paid+ +w.paid}),{impr:0,clicks:0,trials:0,paid:0});
+    const stages=[tot.impr,tot.clicks,tot.trials,tot.paid];
+    if(charts.funnel) charts.funnel.destroy();
+    charts.funnel=new Chart(document.getElementById('chart-funnel'),{
+      type:'bar',
+      data:{labels:['Impressions','Clicks','Trials','Paid'], datasets:[{
+        label:'Count', data:stages,
+        backgroundColor:['rgba(0,151,178,0.85)','rgba(64,180,140,0.85)','rgba(126,217,87,0.85)','rgba(126,217,87,0.55)'],
+        borderRadius:6
+      }]},
+      options:baseOpts({
+        indexAxis:'y',
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:ctx=>{
+            const i=ctx.dataIndex, v=stages[i];
+            let line=v.toLocaleString('en-US');
+            if(i>0){
+              const prev=stages[i-1];
+              const pct=prev>0 ? (v/prev*100) : 0;
+              line += '  ('+pct.toFixed(pct<10?1:0)+'% of '+['Impressions','Clicks','Trials'][i-1].toLowerCase()+')';
+            }
+            return line;
+          }}}
+        },
+        scales:{
+          x:{type:'logarithmic', min:0.8, grid:{color:gridColor}, ticks:{color:tickColor, font:chartFont}},
+          y:{grid:{display:false}, ticks:{color:'#eef2f4', font:chartFont}}
+        }
+      })
+    });
+  }
+
+  function drawAllocChart(){
+    const p=+state.alloc.p||0, r=+state.alloc.r||0, t=+state.alloc.t||0;
+    const hasData=(p+r+t)>0;
+    const data = hasData?[p,r,t]:[70,20,10];
+    if(charts.alloc) charts.alloc.destroy();
+    charts.alloc=new Chart(document.getElementById('chart-alloc'),{
+      type:'doughnut',
+      data:{labels:['Prospecting','Retargeting','Testing'], datasets:[{
+        data, backgroundColor:['#0097b2','#7ed957','#ffc860'], borderColor:'#1f2630', borderWidth:2
+      }]},
+      options:baseOpts({
+        cutout:'62%',
+        plugins:{
+          legend:{position:'bottom', labels:{color:'#eef2f4', font:chartFont, boxWidth:12, padding:14}},
+          tooltip:{callbacks:{label:c=>{
+            const sum=data.reduce((a,b)=>a+b,0); const pct=sum?Math.round(c.parsed/sum*100):0;
+            return c.label+': '+(hasData?('$'+c.parsed+' ('+pct+'%)'):(pct+'% target'));
+          }}}
+        }
+      })
+    });
+  }
+
+  // ---------- WEEKLY LOG ----------
+  function renderLog(){
+    const weeks=[...state.weeks].sort((a,b)=>b.week.localeCompare(a.week));
+    const body=document.getElementById('log-body');
+    const empty=document.getElementById('log-empty');
+    if(!weeks.length){ body.innerHTML=''; empty.style.display='block'; return; }
+    empty.style.display='none';
+    body.innerHTML=weeks.map(w=>{
+      const d=derive(w);
+      return `<tr>
+        <td>${fmtDate(w.week,true)}${w.sample?' <span style="color:var(--text-faint);font-weight:400;font-size:11px">(ex)</span>':''}</td>
+        <td>$${num(w.spend)}</td>
+        <td>${num(w.trials)}</td>
+        <td>${w.trials>0?'$'+d.cpa.toFixed(0):'—'}</td>
+        <td>${w.impr>0?d.ctr.toFixed(2)+'%':'—'}</td>
+        <td>${w.clicks>0?'$'+d.cpc.toFixed(2):'—'}</td>
+        <td>${w.clicks>0?d.lpcvr.toFixed(1)+'%':'—'}</td>
+        <td>${num(w.paid)}</td>
+        <td>${num(w.calls||0)}</td>
+        <td><button class="del-x" data-week="${w.week}">✕</button></td>
+      </tr>`;
+    }).join('');
+    body.querySelectorAll('.del-x').forEach(b=>b.addEventListener('click',()=>{
+      state.weeks=state.weeks.filter(x=>x.week!==b.dataset.week);
+      persist(); renderAll();
+    }));
+  }
+
+  document.getElementById('add-week').addEventListener('click',()=>{
+    const week=document.getElementById('f-week').value;
+    if(!week){ alert('Pick a week-ending date first.'); return; }
+    const entry={
+      week,
+      spend:+document.getElementById('f-spend').value||0,
+      impr:+document.getElementById('f-impr').value||0,
+      clicks:+document.getElementById('f-clicks').value||0,
+      trials:+document.getElementById('f-trials').value||0,
+      paid:+document.getElementById('f-paid').value||0,
+      calls:+document.getElementById('f-calls').value||0,
+    };
+    if(state.sampleActive){ state.weeks=state.weeks.filter(w=>!w.sample); state.sampleActive=false; }
+    state.weeks=state.weeks.filter(w=>w.week!==week);
+    state.weeks.push(entry);
+    ['f-spend','f-impr','f-clicks','f-trials','f-paid','f-calls'].forEach(id=>document.getElementById(id).value='');
+    persist(); renderAll();
+    document.querySelector('.tab[data-tab="dashboard"]').click();
+  });
+
+  document.getElementById('clear-sample').addEventListener('click',()=>{
+    state.weeks=state.weeks.filter(w=>!w.sample); state.sampleActive=false;
+    persist(); renderAll();
+  });
+
+  // ---------- CSV EXPORT / IMPORT ----------
+  document.getElementById('export-csv').addEventListener('click',()=>{
+    const weeks=[...state.weeks].sort((a,b)=>a.week.localeCompare(b.week));
+    if(!weeks.length){ alert('No data to export yet.'); return; }
+    const headers=['Week ending','Spend','Impressions','Clicks','Trials','Paid','Calls (Meta B)','Cost per Trial','CTR %','CPC','LP Conv %','Trial to Paid %'];
+    const rows=weeks.map(w=>{
+      const d=derive(w);
+      return [
+        w.week, w.spend, w.impr, w.clicks, w.trials, w.paid, (w.calls||0),
+        w.trials>0?d.cpa.toFixed(2):'', w.impr>0?d.ctr.toFixed(2):'',
+        w.clicks>0?d.cpc.toFixed(2):'', w.clicks>0?d.lpcvr.toFixed(2):'',
+        w.trials>0?d.t2p.toFixed(2):''
+      ].join(',');
+    });
+    const csv=[headers.join(','), ...rows].join('\n');
+    const blob=new Blob([csv],{type:'text/csv'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='msb-ads-weekly-log-'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('import-csv-btn').addEventListener('click',()=>document.getElementById('import-csv-file').click());
+  document.getElementById('import-csv-file').addEventListener('change',(e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      try{
+        const lines=ev.target.result.split(/\r?\n/).filter(l=>l.trim());
+        if(lines.length<2) throw new Error('empty');
+        const header=lines[0].split(',').map(h=>h.trim().toLowerCase());
+        const idx=name=>header.findIndex(h=>h.startsWith(name));
+        const iW=idx('week'), iS=idx('spend'), iI=idx('impress'), iC=idx('click'), iT=idx('trial'), iP=idx('paid'), iCalls=idx('calls');
+        if(iW<0||iS<0){ throw new Error('missing columns'); }
+        const imported=[];
+        for(let n=1;n<lines.length;n++){
+          const c=lines[n].split(',');
+          const week=(c[iW]||'').trim();
+          if(!week) continue;
+          imported.push({
+            week,
+            spend:+c[iS]||0, impr:iI>=0?+c[iI]||0:0, clicks:iC>=0?+c[iC]||0:0,
+            trials:iT>=0?+c[iT]||0:0, paid:iP>=0?+c[iP]||0:0,
+            calls:iCalls>=0?+c[iCalls]||0:0
+          });
+        }
+        if(!imported.length) throw new Error('no rows');
+        if(!confirm('Import '+imported.length+' weeks? This replaces your current data.')) { e.target.value=''; return; }
+        state.weeks=imported; state.sampleActive=false;
+        persist(); renderAll();
+        document.querySelector('.tab[data-tab="dashboard"]').click();
+      }catch(err){
+        alert('Could not read that CSV. Use a file exported from this dashboard, with a "Week ending" and "Spend" column.');
+      }
+      e.target.value='';
+    };
+    reader.readAsText(file);
+  });
+
+  function setupAllocInputs(){
+    ['p','r','t'].forEach(k=>{
+      const el=document.getElementById('alloc-'+k);
+      el.value=state.alloc[k];
+      el.addEventListener('input',e=>{ state.alloc[k]=e.target.value; drawAllocChart(); });
+      el.addEventListener('blur',persist);
+    });
+  }
+
+  document.getElementById('print-btn').addEventListener('click',()=>window.print());
+
+  // ---------- ROADMAP ----------
+  function renderRoadmap(){
+    const c=document.getElementById('roadmap-phases'); c.innerHTML='';
+    ['phase1','phase2','phase3'].forEach(key=>{
+      const ph=state.roadmap[key];
+      const done=ph.items.filter(i=>i.done).length, total=ph.items.length, pct=total?Math.round(done/total*100):0;
+      const card=document.createElement('div'); card.className='card';
+      card.innerHTML=`<div class="phase-header"><h2 style="margin:0">${ph.title}</h2><span class="phase-tag">${ph.weeks}</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-row"><span>${done} / ${total} complete</span><span>${pct}%</span></div>
+        <div class="checklist" style="margin-top:12px"></div>`;
+      const list=card.querySelector('.checklist');
+      ph.items.forEach(item=>{
+        const row=document.createElement('div'); row.className='check-item'+(item.done?' done':'');
+        row.innerHTML=`<input type="checkbox" id="${item.id}" ${item.done?'checked':''}><label for="${item.id}">${item.label}</label>`;
+        row.querySelector('input').addEventListener('change',e=>{ item.done=e.target.checked; row.classList.toggle('done',item.done); renderRoadmap(); persist(); });
+        list.appendChild(row);
+      });
+      c.appendChild(card);
+    });
+    let done=0,total=0; ['phase1','phase2','phase3'].forEach(k=>state.roadmap[k].items.forEach(i=>{total++; if(i.done)done++;}));
+    const pct=total?Math.round(done/total*100):0;
+    document.getElementById('overall-fill').style.width=pct+'%';
+    document.getElementById('overall-count').textContent=`${done} / ${total} complete`;
+    document.getElementById('overall-pct').textContent=pct+'%';
+  }
+
+  // ---------- SETUP ----------
+  function renderSetup(){
+    const list=document.getElementById('setup-checklist'); list.innerHTML='';
+    state.setup.items.forEach(item=>{
+      const row=document.createElement('div'); row.className='check-item'+(item.done?' done':'');
+      row.innerHTML=`<input type="checkbox" id="${item.id}" ${item.done?'checked':''}><label for="${item.id}">${item.label}</label>`;
+      row.querySelector('input').addEventListener('change',e=>{ item.done=e.target.checked; row.classList.toggle('done',item.done); updateSetupProg(); persist(); });
+      list.appendChild(row);
+    });
+    updateSetupProg();
+    const notes=document.getElementById('setup-notes'); notes.value=state.setup.notes;
+    notes.addEventListener('input',e=>state.setup.notes=e.target.value);
+    notes.addEventListener('blur',persist);
+  }
+  function updateSetupProg(){
+    const done=state.setup.items.filter(i=>i.done).length, total=state.setup.items.length, pct=total?Math.round(done/total*100):0;
+    document.getElementById('setup-fill').style.width=pct+'%';
+    document.getElementById('setup-count').textContent=`${done} / ${total} complete`;
+    document.getElementById('setup-pct').textContent=pct+'%';
+  }
+
+  // ---------- TABS + helpers ----------
+  function setupTabs(){
+    document.querySelectorAll('.tab').forEach(tab=>{
+      tab.addEventListener('click',()=>{
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
+        if(tab.dataset.tab==='dashboard') setTimeout(()=>{ Object.values(charts).forEach(c=>c&&c.resize()); },50);
+      });
+    });
+  }
+  function num(n){ return (+n).toLocaleString('en-US'); }
+  function fmtDate(s, short){
+    const d=new Date(s+'T00:00:00');
+    return short ? d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
